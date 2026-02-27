@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema de Gastos</title>
+
+<!-- PWA manifest -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2563eb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+<!-- Tailwind CDN -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+</head>
+<body class="bg-slate-100 dark:bg-slate-900 text-gray-900 dark:text-white min-h-screen">
+
+<div class="max-w-6xl mx-auto p-6 pb-20">
+
+    <h1 class="text-3xl font-bold text-center text-blue-600 mb-6">💰 Sistema de Gastos</h1>
+
+    <!-- Formulario -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-md p-6 mb-6">
+        <form id="gastoForm" class="grid md:grid-cols-5 gap-4">
+            <input type="date" id="fecha" required
+                class="border rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-400">
+
+            <input type="text" id="descripcion" placeholder="Descripción" required
+                class="border rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-400">
+
+            <input type="number" id="monto" placeholder="Monto" step="0.01" required
+                class="border rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-400">
+
+            <select id="categoria"
+                class="border rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                <option value="Personal">Personal</option>
+                <option value="General">General</option>
+            </select>
+
+            <button type="submit"
+                class="bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition active:scale-95">
+                Agregar
+            </button>
+        </form>
+    </div>
+
+    <!-- Filtro -->
+    <div class="flex flex-wrap gap-4 items-center mb-4">
+        <label class="font-semibold">Filtrar por mes:</label>
+        <input type="month" id="filtroMes"
+            class="border rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-400">
+        <button onclick="limpiarFiltro()"
+            class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 active:scale-95">
+            Todos
+        </button>
+    </div>
+
+    <!-- Tabla -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-x-auto">
+        <table class="w-full text-center">
+            <thead class="bg-blue-600 text-white">
+                <tr>
+                    <th class="p-3">Fecha</th>
+                    <th class="p-3">Descripción</th>
+                    <th class="p-3">Monto</th>
+                    <th class="p-3">Categoría</th>
+                    <th class="p-3">Eliminar</th>
+                </tr>
+            </thead>
+            <tbody id="listaGastos" class="divide-y"></tbody>
+        </table>
+    </div>
+
+    <!-- Totales -->
+    <div class="grid md:grid-cols-3 gap-4 mt-6 text-white font-bold">
+        <div class="bg-green-500 p-4 rounded-lg text-center">Personal: $<span id="totalPersonal">0.00</span></div>
+        <div class="bg-red-500 p-4 rounded-lg text-center">General: $<span id="totalGeneral">0.00</span></div>
+        <div class="bg-blue-600 p-4 rounded-lg text-center">Total: $<span id="totalGlobal">0.00</span></div>
+    </div>
+
+</div>
+
+<!-- Barra inferior tipo app -->
+<div class="fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-800 shadow-inner flex justify-around py-3 border-t">
+    <button onclick="window.scrollTo({top:0,behavior:'smooth'})"
+        class="flex flex-col items-center text-blue-600">
+        <span>🏠</span><span class="text-xs">Inicio</span>
+    </button>
+
+    <button onclick="document.getElementById('gastoForm').scrollIntoView({behavior:'smooth'})"
+        class="flex flex-col items-center text-gray-600">
+        <span>➕</span><span class="text-xs">Agregar</span>
+    </button>
+
+    <button onclick="document.getElementById('filtroMes').scrollIntoView({behavior:'smooth'})"
+        class="flex flex-col items-center text-gray-600">
+        <span>📅</span><span class="text-xs">Mes</span>
+    </button>
+</div>
+
+<script>
+// Datos
+let gastos = JSON.parse(localStorage.getItem("gastos")) || [];
+
+const form = document.getElementById("gastoForm");
+const lista = document.getElementById("listaGastos");
+const filtroMes = document.getElementById("filtroMes");
+
+// Agregar gasto
+form.addEventListener("submit", function(e){
+    e.preventDefault();
+    const gasto = {
+        fecha: document.getElementById("fecha").value,
+        descripcion: document.getElementById("descripcion").value,
+        monto: parseFloat(document.getElementById("monto").value),
+        categoria: document.getElementById("categoria").value
+    };
+    gastos.push(gasto);
+    guardar();
+    mostrar();
+    form.reset();
+
+    // Vibración tipo app nativa
+    if(navigator.vibrate) navigator.vibrate(50);
+});
+
+// Filtrar por mes
+filtroMes.addEventListener("change", mostrar);
+
+// Mostrar gastos
+function mostrar(){
+    lista.innerHTML = "";
+    let totalPersonal=0, totalGeneral=0;
+    const mesSeleccionado = filtroMes.value;
+
+    gastos.forEach((gasto,index)=>{
+        if(mesSeleccionado && !gasto.fecha.startsWith(mesSeleccionado)) return;
+        const fila = `<tr class="hover:bg-slate-100 dark:hover:bg-slate-700 transition duration-300 ease-in-out">
+            <td class="p-3">${gasto.fecha}</td>
+            <td class="p-3">${gasto.descripcion}</td>
+            <td class="p-3 font-semibold">$${gasto.monto.toFixed(2)}</td>
+            <td class="p-3">${gasto.categoria}</td>
+            <td class="p-3">
+                <button onclick="eliminar(${index})" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 active:scale-95">X</button>
+            </td>
+        </tr>`;
+        lista.innerHTML += fila;
+
+        if(gasto.categoria==="Personal") totalPersonal+=gasto.monto;
+        else totalGeneral+=gasto.monto;
+    });
+
+    document.getElementById("totalPersonal").textContent = totalPersonal.toFixed(2);
+    document.getElementById("totalGeneral").textContent = totalGeneral.toFixed(2);
+    document.getElementById("totalGlobal").textContent = (totalPersonal+totalGeneral).toFixed(2);
+}
+
+// Eliminar gasto
+function eliminar(index){ gastos.splice(index,1); guardar(); mostrar(); }
+function guardar(){ localStorage.setItem("gastos", JSON.stringify(gastos)); }
+function limpiarFiltro(){ filtroMes.value=""; mostrar(); }
+
+mostrar();
+
+// Registrar service worker para PWA
+if("serviceWorker" in navigator){
+    window.addEventListener("load",()=>{
+        navigator.serviceWorker.register("sw.js")
+        .then(()=>console.log("Service Worker registrado"))
+        .catch(err=>console.log(err));
+    });
+}
+</script>
+
+</body>
+</html>
